@@ -77,7 +77,9 @@ flutter:
     - assets/icons/home/
     - assets/icons/weather/
     - assets/icons/nav/
+    - assets/icons/nav_v2/
     - assets/icons/outfit/
+    - assets/icons/settings/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

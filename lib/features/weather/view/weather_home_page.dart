@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_bottom_nav.dart';
 import '../../outfit/controller/outfit_provider.dart';
 import '../../outfit/model/outfit_recommendation.dart';
 import '../controller/forecast_provider.dart';
@@ -49,7 +50,6 @@ class WeatherHomePage extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const _BottomNav(),
     );
   }
 }
@@ -88,25 +88,6 @@ class _LocationBar extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(
-            width: 40,
-            height: 40,
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              onPressed: () {
-                // TODO: 进入设置页
-              },
-              icon: SvgPicture.asset(
-                'assets/icons/home/settings.svg',
-                width: 20,
-                height: 20,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.onSurface,
-                  BlendMode.srcIn,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -131,8 +112,14 @@ class _MainContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        24,
+        20,
+        30 + AppBottomNav.estimatedHeight + bottomInset,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -757,80 +744,6 @@ class _FilledButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _BottomNav extends StatelessWidget {
-  const _BottomNav();
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('天气', 'assets/icons/nav/weather.svg', true),
-      ('穿搭', 'assets/icons/nav/outfit.svg', false),
-      ('社区', 'assets/icons/nav/community.svg', false),
-      ('我的', 'assets/icons/nav/profile.svg', false),
-    ];
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        border: Border(
-          top: BorderSide(color: AppColors.surfaceContainerHigh),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 9, 20, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              for (final item in items)
-                _NavItem(label: item.$1, asset: item.$2, active: item.$3),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.label,
-    required this.asset,
-    required this.active,
-  });
-
-  final String label;
-  final String asset;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? AppColors.primary : AppColors.onSurfaceVariant;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SvgPicture.asset(
-          asset,
-          width: 22,
-          height: 16,
-          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: AppTypography.labelCaps.copyWith(
-            letterSpacing: 0,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: color,
-            height: 15 / 10,
-          ),
-        ),
-      ],
     );
   }
 }
