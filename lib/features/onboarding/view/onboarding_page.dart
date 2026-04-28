@@ -11,7 +11,6 @@ import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../weather/controller/location_provider.dart';
-import '../../weather/model/geo_location.dart';
 
 /// 启动引导页：根据 Figma 设计实现。
 class OnboardingPage extends ConsumerStatefulWidget {
@@ -34,13 +33,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final position = await ref
+      final location = await ref
           .read(locationServiceProvider)
-          .currentPosition();
-      ref.read(selectedLocationProvider.notifier).state = GeoLocation.coords(
-        latitude: position.latitude,
-        longitude: position.longitude,
-      );
+          .currentLocation();
+      ref.read(selectedLocationProvider.notifier).state = location;
       if (!mounted) return;
       context.go(Routes.weatherHome);
     } on LocationException catch (e) {
