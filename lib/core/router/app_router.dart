@@ -1,27 +1,18 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/onboarding/view/onboarding_page.dart';
 import 'routes.dart';
 
-/// 全局路由。当前仅占位一个空白启动页，后续按 feature 接入页面。
+/// 全局路由。
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: Routes.splash,
+    initialLocation: Routes.onboarding,
     routes: <RouteBase>[
       GoRoute(
-        path: Routes.splash,
-        builder: (context, state) => const _PlaceholderPage(),
+        path: Routes.onboarding,
+        builder: (context, state) => const OnboardingPage(),
       ),
     ],
   );
 });
-
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: SizedBox.shrink());
-  }
-}
