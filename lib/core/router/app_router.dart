@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/onboarding/view/onboarding_page.dart';
+import '../../features/weather/view/weather_home_page.dart';
 import 'routes.dart';
 
 /// 全局路由。
@@ -12,6 +13,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.onboarding,
         builder: (context, state) => const OnboardingPage(),
+      ),
+      GoRoute(
+        path: Routes.weatherHome,
+        builder: (context, state) => const WeatherHomePage(),
       ),
     ],
   );

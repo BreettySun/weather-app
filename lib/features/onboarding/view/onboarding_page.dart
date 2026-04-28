@@ -1,32 +1,70 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/error/app_exception.dart';
+import '../../../core/location/location_service.dart';
+import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../weather/controller/location_provider.dart';
+import '../../weather/model/geo_location.dart';
 
 /// 启动引导页：根据 Figma 设计实现。
-///
-/// 结构：
-///  - 顶部 397dp 高的人物 / 云朵插画 + 暖色调渐变蒙版
-///  - 底部白色面板（顶部圆角 48dp，向上重叠 48dp）：标题 + 副标题 + 主次按钮 + 隐私说明
-///  - 右上方半透明胶囊形天气提示
-class OnboardingPage extends StatelessWidget {
-  const OnboardingPage({
-    super.key,
-    this.onUseLocation,
-    this.onManualCity,
-    this.weatherChipText = '24°C',
-  });
+class OnboardingPage extends ConsumerStatefulWidget {
+  const OnboardingPage({super.key, this.weatherChipText = '24°C'});
 
-  final VoidCallback? onUseLocation;
-  final VoidCallback? onManualCity;
   final String weatherChipText;
 
   static const double _heroHeight = 397;
   static const double _sheetOverlap = 48;
   static const double _safeMargin = 20;
+
+  @override
+  ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
+}
+
+class _OnboardingPageState extends ConsumerState<OnboardingPage> {
+  bool _busy = false;
+
+  Future<void> _onUseLocation() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final position = await ref
+          .read(locationServiceProvider)
+          .currentPosition();
+      ref.read(selectedLocationProvider.notifier).state = GeoLocation.coords(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+      if (!mounted) return;
+      context.go(Routes.weatherHome);
+    } on LocationException catch (e) {
+      _showError(e.message);
+    } on AppException catch (e) {
+      _showError(e.message);
+    } catch (e) {
+      _showError('发生未知错误');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _onManualCity() {
+    // TODO: 接入手动输入城市页（搜索 / 选择 → selectedLocationProvider）。
+    _showError('手动输入城市功能即将上线');
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,23 +78,24 @@ class OnboardingPage extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            height: _heroHeight,
+            height: OnboardingPage._heroHeight,
             child: _HeroSection(),
           ),
           Positioned(
-            top: _heroHeight - _sheetOverlap,
+            top: OnboardingPage._heroHeight - OnboardingPage._sheetOverlap,
             left: 0,
             right: 0,
             bottom: 0,
             child: _BottomSheet(
-              onUseLocation: onUseLocation,
-              onManualCity: onManualCity,
+              busy: _busy,
+              onUseLocation: _onUseLocation,
+              onManualCity: _busy ? null : _onManualCity,
             ),
           ),
           Positioned(
-            top: topInset + _safeMargin,
-            right: _safeMargin,
-            child: _WeatherChip(text: weatherChipText),
+            top: topInset + OnboardingPage._safeMargin,
+            right: OnboardingPage._safeMargin,
+            child: _WeatherChip(text: widget.weatherChipText),
           ),
         ],
       ),
@@ -97,8 +136,13 @@ class _HeroSection extends StatelessWidget {
 }
 
 class _BottomSheet extends StatelessWidget {
-  const _BottomSheet({this.onUseLocation, this.onManualCity});
+  const _BottomSheet({
+    required this.busy,
+    this.onUseLocation,
+    this.onManualCity,
+  });
 
+  final bool busy;
   final VoidCallback? onUseLocation;
   final VoidCallback? onManualCity;
 
@@ -123,6 +167,7 @@ class _BottomSheet extends StatelessWidget {
                     children: [
                       const _Heading(),
                       _ActionsBlock(
+                        busy: busy,
                         onUseLocation: onUseLocation,
                         onManualCity: onManualCity,
                       ),
@@ -177,8 +222,13 @@ class _Heading extends StatelessWidget {
 }
 
 class _ActionsBlock extends StatelessWidget {
-  const _ActionsBlock({this.onUseLocation, this.onManualCity});
+  const _ActionsBlock({
+    required this.busy,
+    this.onUseLocation,
+    this.onManualCity,
+  });
 
+  final bool busy;
   final VoidCallback? onUseLocation;
   final VoidCallback? onManualCity;
 
@@ -191,6 +241,7 @@ class _ActionsBlock extends StatelessWidget {
           _PrimaryButton(
             label: '开启定位，获取天气',
             iconAsset: 'assets/icons/onboarding_location.svg',
+            busy: busy,
             onPressed: onUseLocation,
           ),
           const SizedBox(height: 16),
@@ -223,15 +274,18 @@ class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({
     required this.label,
     required this.iconAsset,
+    required this.busy,
     this.onPressed,
   });
 
   final String label;
   final String iconAsset;
+  final bool busy;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final disabled = busy || onPressed == null;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(9999),
@@ -255,24 +309,34 @@ class _PrimaryButton extends StatelessWidget {
         shape: const StadiumBorder(),
         child: InkWell(
           customBorder: const StadiumBorder(),
-          onTap: onPressed,
+          onTap: disabled ? null : onPressed,
           child: SizedBox(
             height: 56,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SvgPicture.asset(
-                  iconAsset,
-                  width: 18,
-                  height: 18,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
+                if (busy)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  )
+                else
+                  SvgPicture.asset(
+                    iconAsset,
+                    width: 18,
+                    height: 18,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
                   ),
-                ),
                 const SizedBox(width: 8),
                 Text(
-                  label,
+                  busy ? '正在获取定位…' : label,
                   style: AppTypography.button.copyWith(color: Colors.white),
                 ),
               ],
@@ -297,34 +361,38 @@ class _SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      shape: const StadiumBorder(),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onPressed,
-        child: SizedBox(
-          height: 56,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SvgPicture.asset(
-                iconAsset,
-                width: 18,
-                height: 19,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.onSurfaceVariant,
-                  BlendMode.srcIn,
+    final disabled = onPressed == null;
+    return Opacity(
+      opacity: disabled ? 0.5 : 1,
+      child: Material(
+        color: Colors.transparent,
+        shape: const StadiumBorder(),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onPressed,
+          child: SizedBox(
+            height: 56,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SvgPicture.asset(
+                  iconAsset,
+                  width: 18,
+                  height: 19,
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.onSurfaceVariant,
+                    BlendMode.srcIn,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: AppTypography.button.copyWith(
-                  color: AppColors.onSurfaceVariant,
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: AppTypography.button.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
