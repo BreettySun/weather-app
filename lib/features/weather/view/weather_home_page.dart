@@ -40,31 +40,25 @@ class WeatherHomePage extends ConsumerWidget {
       backgroundColor: AppColors.surfaceContainerLowest,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            _LocationBar(location: location),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () => _refresh(ref),
-                color: AppColors.primaryContainer,
-                // skipLoadingOnRefresh 默认 true——下拉刷新时仍展示旧数据，
-                // 顶部菊花覆盖在内容之上，避免视图跳变。
-                child: forecastAsync.when(
-                  loading: () => const _LoadingView(),
-                  error: (e, _) => _ErrorView(
-                    message: friendlyErrorMessage(e),
-                    onRetry: () => ref.invalidate(forecastProvider),
-                  ),
-                  data: (forecast) => _MainContent(
-                    forecast: forecast,
-                    outfit: outfit,
-                    tempUnit: tempUnit,
-                    windUnit: windUnit,
-                  ),
-                ),
-              ),
+        child: RefreshIndicator(
+          onRefresh: () => _refresh(ref),
+          color: AppColors.primaryContainer,
+          // skipLoadingOnRefresh 默认 true——下拉刷新时仍展示旧数据，
+          // 顶部菊花覆盖在内容之上，避免视图跳变。
+          child: forecastAsync.when(
+            loading: () => const _LoadingView(),
+            error: (e, _) => _ErrorView(
+              message: friendlyErrorMessage(e),
+              onRetry: () => ref.invalidate(forecastProvider),
             ),
-          ],
+            data: (forecast) => _MainContent(
+              forecast: forecast,
+              location: location,
+              outfit: outfit,
+              tempUnit: tempUnit,
+              windUnit: windUnit,
+            ),
+          ),
         ),
       ),
     );
@@ -84,65 +78,17 @@ class WeatherHomePage extends ConsumerWidget {
   }
 }
 
-/// 顶部定位栏：浅灰底，左侧 pin + 城市名，右侧设置按钮。
-class _LocationBar extends StatelessWidget {
-  const _LocationBar({this.location});
-
-  final GeoLocation? location;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = _displayName(location);
-    return Container(
-      width: double.infinity,
-      color: AppColors.surfaceContainerLow,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Row(
-        children: [
-          SvgPicture.asset(
-            'assets/icons/home/location_pin.svg',
-            width: 16,
-            height: 20,
-            colorFilter: const ColorFilter.mode(
-              AppColors.onSurface,
-              BlendMode.srcIn,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              name,
-              style: AppTypography.bodyLg.copyWith(
-                color: AppColors.onSurface,
-                height: 28 / 18,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _displayName(GeoLocation? loc) {
-    if (loc == null) return '当前位置';
-    final name = loc.name;
-    final admin = loc.admin1;
-    if (admin != null && admin.isNotEmpty && admin != name) {
-      return '$name · $admin';
-    }
-    return name;
-  }
-}
-
 class _MainContent extends StatelessWidget {
   const _MainContent({
     required this.forecast,
+    required this.location,
     required this.outfit,
     required this.tempUnit,
     required this.windUnit,
   });
 
   final WeatherForecast forecast;
+  final GeoLocation? location;
   final OutfitRecommendation? outfit;
   final TemperatureUnit tempUnit;
   final WindSpeedUnit windUnit;
@@ -164,6 +110,7 @@ class _MainContent extends StatelessWidget {
         children: [
           _WeatherCard(
             forecast: forecast,
+            location: location,
             tempUnit: tempUnit,
             windUnit: windUnit,
           ),
@@ -177,15 +124,17 @@ class _MainContent extends StatelessWidget {
   }
 }
 
-/// 天气卡：渐变蓝底，含温度/条件、3 个数据 chip、3 日小预报。
+/// 天气卡：渐变蓝底，含定位、温度/条件、3 个数据 chip、3 日小预报。
 class _WeatherCard extends StatelessWidget {
   const _WeatherCard({
     required this.forecast,
+    required this.location,
     required this.tempUnit,
     required this.windUnit,
   });
 
   final WeatherForecast forecast;
+  final GeoLocation? location;
   final TemperatureUnit tempUnit;
   final WindSpeedUnit windUnit;
 
@@ -215,6 +164,8 @@ class _WeatherCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _CardLocation(location: location),
+          const SizedBox(height: 16),
           _WeatherHeader(current: c, tempUnit: tempUnit),
           const SizedBox(height: 16),
           _WeatherChipsRow(
@@ -229,6 +180,53 @@ class _WeatherCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 卡片内顶部定位行——pin + 城市名，文字色与 [_WeatherHeader] 一致以融入蓝底。
+class _CardLocation extends StatelessWidget {
+  const _CardLocation({required this.location});
+
+  final GeoLocation? location;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SvgPicture.asset(
+          'assets/icons/home/location_pin.svg',
+          width: 14,
+          height: 18,
+          colorFilter: const ColorFilter.mode(
+            AppColors.onSecondaryFixed,
+            BlendMode.srcIn,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            _displayName(location),
+            style: AppTypography.bodyMd.copyWith(
+              color: AppColors.onSecondaryFixed,
+              fontWeight: FontWeight.w500,
+              height: 24 / 16,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _displayName(GeoLocation? loc) {
+    if (loc == null) return '当前位置';
+    final name = loc.name;
+    final admin = loc.admin1;
+    if (admin != null && admin.isNotEmpty && admin != name) {
+      return '$name · $admin';
+    }
+    return name;
   }
 }
 
