@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/error/friendly_message.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/scrollable_fill.dart';
 import '../../outfit/controller/outfit_provider.dart';
 import '../../outfit/model/outfit_recommendation.dart';
 import '../controller/forecast_provider.dart';
@@ -34,16 +36,19 @@ class WeatherHomePage extends ConsumerWidget {
           children: [
             _LocationBar(location: location),
             Expanded(
-              child: forecastAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => _ErrorView(
-                  message: e.toString(),
-                  onRetry: () => ref.invalidate(forecastProvider),
-                ),
-                data: (forecast) => _MainContent(
-                  forecast: forecast,
-                  outfit: outfit,
+              child: RefreshIndicator(
+                onRefresh: () => _refresh(ref),
+                color: AppColors.primaryContainer,
+                // skipLoadingOnRefresh 默认 true——下拉刷新时仍展示旧数据，
+                // 顶部菊花覆盖在内容之上，避免视图跳变。
+                child: forecastAsync.when(
+                  loading: () => const _LoadingView(),
+                  error: (e, _) => _ErrorView(
+                    message: friendlyErrorMessage(e),
+                    onRetry: () => ref.invalidate(forecastProvider),
+                  ),
+                  data: (forecast) =>
+                      _MainContent(forecast: forecast, outfit: outfit),
                 ),
               ),
             ),
@@ -51,6 +56,19 @@ class WeatherHomePage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// 下拉刷新：重跑 [forecastProvider] 并等待新数据落地，
+  /// 让 [RefreshIndicator] 的菊花在请求完成后再收起。
+  /// 失败时不抛——错误已被 [AsyncValue] 捕获，[_ErrorView] 会接管。
+  Future<void> _refresh(WidgetRef ref) async {
+    // ignore: unused_result
+    ref.refresh(forecastProvider);
+    try {
+      await ref.read(forecastProvider.future);
+    } catch (_) {
+      // swallow: surfaces in AsyncValue.error
+    }
   }
 }
 
@@ -114,6 +132,8 @@ class _MainContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     return SingleChildScrollView(
+      // 必须始终可滚动——RefreshIndicator 依赖 overscroll 触发。
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         20,
         24,
@@ -748,6 +768,33 @@ class _FilledButton extends StatelessWidget {
   }
 }
 
+class _LoadingView extends StatelessWidget {
+  const _LoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return ScrollableFill(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              color: AppColors.primaryContainer,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '正在获取天气…',
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message, required this.onRetry});
 
@@ -756,22 +803,49 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodyMd,
-            ),
-            const SizedBox(height: 24),
-            FilledButton(onPressed: onRetry, child: const Text('重试')),
-          ],
+    return ScrollableFill(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.cloud_off_outlined,
+                size: 56,
+                color: AppColors.onSurfaceVariant,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyMd.copyWith(
+                  color: AppColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '下拉也可重新加载',
+                style: AppTypography.labelCaps.copyWith(
+                  letterSpacing: 0,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: onRetry,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primaryContainer,
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('重试'),
+              ),
+            ],
+          ),
         ),
       ),
     );
