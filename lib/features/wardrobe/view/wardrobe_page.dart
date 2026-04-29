@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,8 +7,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/frosted_app_bar.dart';
 import '../../outfit/controller/outfit_provider.dart';
+import '../../outfit/data/outfit_catalog.dart';
+import '../../outfit/model/outfit_pieces.dart';
 import '../../outfit/model/outfit_recommendation.dart';
+import '../../outfit/model/temperature_bracket.dart';
 import '../../settings/controller/preferences_provider.dart';
 import '../../weather/controller/forecast_provider.dart';
 
@@ -24,18 +26,20 @@ class WardrobePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncForecast = ref.watch(forecastProvider);
     final outfit = ref.watch(outfitRecommendationProvider);
-    final tempUnit = ref.watch(
-      userPreferencesProvider.select((p) => p.temperatureUnit),
-    );
+    final prefs = ref.watch(userPreferencesProvider);
     // 体感温度（°C，原始值）——决定 [_BracketCard] 的高亮档位。
-    // 高亮匹配逻辑用 °C 原值，因此即使用户选了 °F 也能正确命中档位。
     final feels = asyncForecast.valueOrNull?.current.apparentTemperatureC;
+    // 高亮匹配用调整过的体感——与推荐器保持一致，否则会出现"卡片说穿厚的、
+    // 但参考表却高亮温和档"的撕裂感。
+    final adjustedFeels = feels == null
+        ? null
+        : adjustFeelsBySensitivity(feels, prefs.thermalSensitivity);
 
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     return Scaffold(
       backgroundColor: AppColors.surfaceContainerLow,
       extendBody: true,
-      appBar: const _WardrobeAppBar(),
+      appBar: buildFrostedAppBar(context, title: '衣橱'),
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
         color: AppColors.primaryContainer,
@@ -54,7 +58,7 @@ class WardrobePage extends ConsumerWidget {
               _TodayCard(
                 outfit: outfit,
                 feelsC: feels,
-                tempUnit: tempUnit,
+                tempUnit: prefs.temperatureUnit,
               ),
               const SizedBox(height: 24),
             ] else if (asyncForecast.hasError) ...[
@@ -66,12 +70,24 @@ class WardrobePage extends ConsumerWidget {
             ],
             _SectionHeader('温度参考'),
             const SizedBox(height: 8),
-            for (var i = 0; i < _brackets.length; i++) ...[
+            for (var i = 0; i < TemperatureBracket.values.length; i++) ...[
               if (i > 0) const SizedBox(height: 12),
-              _BracketCard(
-                bracket: _brackets[i],
-                tempUnit: tempUnit,
-                highlight: feels != null && _brackets[i].contains(feels),
+              Builder(
+                builder: (_) {
+                  final bracket = TemperatureBracket.values[i];
+                  final pieces = outfitPiecesFor(
+                    bracket: bracket,
+                    style: prefs.style,
+                    gender: prefs.gender,
+                  );
+                  return _BracketCard(
+                    bracket: bracket,
+                    pieces: pieces,
+                    tempUnit: prefs.temperatureUnit,
+                    highlight: adjustedFeels != null &&
+                        bracket.contains(adjustedFeels),
+                  );
+                },
               ),
             ],
           ],
@@ -88,39 +104,6 @@ class WardrobePage extends ConsumerWidget {
     } catch (_) {
       // surfaces in AsyncValue.error → _ErrorBanner
     }
-  }
-}
-
-class _WardrobeAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _WardrobeAppBar();
-
-  @override
-  Size get preferredSize => const Size.fromHeight(64);
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          height: 64,
-          decoration: const BoxDecoration(
-            color: Color(0xCCFFFFFF),
-            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
-          ),
-          child: Center(
-            child: Text(
-              '衣橱',
-              style: AppTypography.bodyLg.copyWith(
-                color: AppColors.onSurface,
-                fontWeight: FontWeight.w700,
-                height: 28 / 18,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -328,11 +311,13 @@ class _ErrorBanner extends StatelessWidget {
 class _BracketCard extends StatelessWidget {
   const _BracketCard({
     required this.bracket,
+    required this.pieces,
     required this.tempUnit,
     required this.highlight,
   });
 
-  final _Bracket bracket;
+  final TemperatureBracket bracket;
+  final OutfitPieces pieces;
   final TemperatureUnit tempUnit;
   final bool highlight;
 
@@ -419,10 +404,10 @@ class _BracketCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _Pill(label: '上衣 · ${bracket.top}'),
-              _Pill(label: '下装 · ${bracket.bottom}'),
-              _Pill(label: '外套 · ${bracket.jacket}'),
-              _Pill(label: '鞋履 · ${bracket.shoes}'),
+              _Pill(label: '上衣 · ${pieces.top}'),
+              _Pill(label: '下装 · ${pieces.bottom}'),
+              _Pill(label: '外套 · ${pieces.jacket}'),
+              _Pill(label: '鞋履 · ${pieces.shoes}'),
             ],
           ),
         ],
@@ -457,33 +442,8 @@ class _Pill extends StatelessWidget {
   }
 }
 
-/// 温度区间——半开区间 [low, high)；最高档 [high == double.infinity]。
-class _Bracket {
-  const _Bracket({
-    required this.label,
-    required this.low,
-    required this.high,
-    required this.accent,
-    required this.top,
-    required this.bottom,
-    required this.jacket,
-    required this.shoes,
-  });
-
-  final String label;
-  final double low;
-  final double high;
-  final Color accent;
-  final String top;
-  final String bottom;
-  final String jacket;
-  final String shoes;
-
-  bool contains(double feelsC) => feelsC >= low && feelsC < high;
-}
-
 /// 把档位的 °C 半开区间渲染成"< 0°"/"0°–8°"/"≥ 28°"等字串，按目标温度单位转换。
-String _rangeLabel(_Bracket b, TemperatureUnit unit) {
+String _rangeLabel(TemperatureBracket b, TemperatureUnit unit) {
   if (b.low == double.negativeInfinity) {
     return '< ${formatTemperatureShort(b.high, unit)}';
   }
@@ -493,68 +453,3 @@ String _rangeLabel(_Bracket b, TemperatureUnit unit) {
   return '${formatTemperatureShort(b.low, unit)}'
       '–${formatTemperatureShort(b.high, unit)}';
 }
-
-/// 温度档划分——边界与 outfit_provider 的规则推导器对齐，
-/// 调整后两边都需要更新。
-const _brackets = <_Bracket>[
-  _Bracket(
-    label: '严寒',
-    low: double.negativeInfinity,
-    high: 0,
-    accent: Color(0xFF5B8CFF),
-    top: '保暖打底衫',
-    bottom: '加绒长裤',
-    jacket: '羽绒服',
-    shoes: '保暖短靴',
-  ),
-  _Bracket(
-    label: '寒冷',
-    low: 0,
-    high: 8,
-    accent: Color(0xFFA4C9FF),
-    top: '保暖打底衫',
-    bottom: '加绒长裤',
-    jacket: '加厚外套',
-    shoes: '保暖短靴',
-  ),
-  _Bracket(
-    label: '凉爽',
-    low: 8,
-    high: 15,
-    accent: Color(0xFF7BC5A0),
-    top: '羊毛针织衫',
-    bottom: '厚款长裤',
-    jacket: '夹克 / 风衣',
-    shoes: '运动鞋',
-  ),
-  _Bracket(
-    label: '温和',
-    low: 15,
-    high: 22,
-    accent: Color(0xFFFFD66B),
-    top: '长袖衬衫',
-    bottom: '休闲长裤',
-    jacket: '薄风衣',
-    shoes: '运动鞋',
-  ),
-  _Bracket(
-    label: '温暖',
-    low: 22,
-    high: 28,
-    accent: Color(0xFFFFA94D),
-    top: '薄长袖 / T恤',
-    bottom: '九分裤',
-    jacket: '无需外套',
-    shoes: '帆布鞋',
-  ),
-  _Bracket(
-    label: '炎热',
-    low: 28,
-    high: double.infinity,
-    accent: Color(0xFFFF7777),
-    top: '冰丝短袖',
-    bottom: '透气短裤',
-    jacket: '无需外套',
-    shoes: '帆布鞋',
-  ),
-];

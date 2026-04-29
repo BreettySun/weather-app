@@ -1,61 +1,49 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../settings/controller/preferences_provider.dart';
+import '../../settings/model/user_preferences.dart';
 import '../../weather/controller/forecast_provider.dart';
 import '../../weather/model/current_weather.dart';
 import '../../weather/model/daily_forecast.dart';
 import '../../weather/model/weather_condition.dart';
+import '../data/outfit_catalog.dart';
 import '../model/outfit_recommendation.dart';
+import '../model/temperature_bracket.dart';
 
-/// 穿搭推荐——基于当前天气 + 今日预报派生。
-///
-/// 当前为基于温度区间 / 降水概率 / 温差的简单规则版本，
-/// 后续可替换为 LLM / 个性化模型。
+/// 穿搭推荐——基于当前天气 + 今日预报 + 用户偏好（性别 / 风格 / 体感敏感度）派生。
 final outfitRecommendationProvider = Provider<OutfitRecommendation?>((ref) {
   final forecastAsync = ref.watch(forecastProvider);
   final forecast = forecastAsync.valueOrNull;
   if (forecast == null) return null;
 
+  final prefs = ref.watch(userPreferencesProvider);
   final today = forecast.daily.isNotEmpty ? forecast.daily.first : null;
-  return _recommend(forecast.current, today);
+  return recommendOutfit(forecast.current, today, prefs);
 });
 
-OutfitRecommendation _recommend(CurrentWeather c, DailyForecast? today) {
+/// 纯函数版本——便于单测，不依赖 Riverpod。
+OutfitRecommendation recommendOutfit(
+  CurrentWeather c,
+  DailyForecast? today,
+  UserPreferences prefs,
+) {
   final feels = c.apparentTemperatureC;
+  final adjustedFeels = adjustFeelsBySensitivity(feels, prefs.thermalSensitivity);
+  final bracket = TemperatureBracket.forFeels(adjustedFeels);
+  final pieces = outfitPiecesFor(
+    bracket: bracket,
+    style: prefs.style,
+    gender: prefs.gender,
+  );
 
-  final top = switch (feels) {
-    < 5 => '保暖打底衫',
-    < 12 => '羊毛针织衫',
-    < 18 => '长袖衬衫',
-    < 24 => '薄长袖 / T恤',
-    < 28 => '透气短袖',
-    _ => '冰丝短袖',
-  };
+  // 雨天兜底——压过风格规则，安全优先于穿搭风格。
+  final rainy =
+      c.precipitationMm > 0.5 ||
+      (today?.precipitationProbabilityPct ?? 0) >= 60;
+  final shoes = rainy ? '防水短靴' : pieces.shoes;
 
-  final bottom = switch (feels) {
-    < 5 => '加绒长裤',
-    < 12 => '厚款长裤',
-    < 22 => '休闲长裤',
-    < 28 => '九分裤',
-    _ => '透气短裤',
-  };
-
-  final jacket = switch (feels) {
-    < 0 => '羽绒服',
-    < 8 => '加厚外套',
-    < 15 => '夹克 / 风衣',
-    < 22 => '薄风衣',
-    _ => '无需外套',
-  };
-
-  final shoes = c.precipitationMm > 0.5 || (today?.precipitationProbabilityPct ?? 0) >= 60
-      ? '防水短靴'
-      : feels < 5
-          ? '保暖短靴'
-          : feels < 22
-              ? '运动鞋'
-              : '帆布鞋';
-
-  // 大字提示——优先级：极端天气 > 温差 > 普通
+  // tip / accessory 仍然基于"客观"信号（原始体感、温差、UV、降水），
+  // 与个人敏感度无关——避免怕冷的用户在 30°C 看到"冷"的提示。
   final dayDelta = (today?.tempMaxC ?? feels) - (today?.tempMinC ?? feels);
   final pop = today?.precipitationProbabilityPct ?? 0;
   final isThunder = c.condition == WeatherCondition.thunderstorm;
@@ -81,7 +69,6 @@ OutfitRecommendation _recommend(CurrentWeather c, DailyForecast? today) {
     tip = '体感舒适，按推荐穿即可';
   }
 
-  // 随身携带
   String accessory;
   String emoji;
   if (pop >= 60 || c.precipitationMm > 0.5) {
@@ -99,9 +86,9 @@ OutfitRecommendation _recommend(CurrentWeather c, DailyForecast? today) {
   }
 
   return OutfitRecommendation(
-    top: top,
-    bottom: bottom,
-    jacket: jacket,
+    top: pieces.top,
+    bottom: pieces.bottom,
+    jacket: pieces.jacket,
     shoes: shoes,
     tip: tip,
     accessory: accessory,

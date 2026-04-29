@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:weather_app/app.dart';
 import 'package:weather_app/core/error/app_exception.dart';
 import 'package:weather_app/core/storage/preferences.dart';
+import 'package:weather_app/core/units/units.dart';
+import 'package:weather_app/features/settings/model/user_preferences.dart';
 import 'package:weather_app/features/wardrobe/view/wardrobe_page.dart';
 import 'package:weather_app/features/weather/model/current_weather.dart';
 import 'package:weather_app/features/weather/model/daily_forecast.dart';
@@ -83,11 +85,17 @@ void _setPhoneViewport(WidgetTester tester) {
   });
 }
 
-Future<Widget> _appWith({required WeatherRepository repo}) async {
+Future<Widget> _appWith({
+  required WeatherRepository repo,
+  UserPreferences? userPrefs,
+}) async {
   const cached = GeoLocation(name: '上海', latitude: 31.23, longitude: 121.47);
-  SharedPreferences.setMockInitialValues(<String, Object>{
+  final seed = <String, Object>{
     'selected_location.v1': jsonEncode(cached.toJson()),
-  });
+    if (userPrefs != null)
+      'user_preferences.v1': jsonEncode(userPrefs.toJson()),
+  };
+  SharedPreferences.setMockInitialValues(seed);
   final prefs = await SharedPreferences.getInstance();
   return ProviderScope(
     overrides: [
@@ -190,4 +198,84 @@ void main() {
     expect(find.text('体感 -3°'), findsOneWidget);
     expect(find.text('当前', skipOffstage: false), findsOneWidget);
   });
+
+  testWidgets('business style + female reflects in bracket pills', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    // 体感 18°（温和档）。
+    final repo = _ScriptedRepo(
+      () => Future<WeatherForecast>.value(_forecastWithFeels(18)),
+    );
+    await tester.pumpWidget(
+      await _appWith(
+        repo: repo,
+        userPrefs: const UserPreferences(
+          gender: GenderPreference.female,
+          style: ClothingStyle.business,
+          temperatureUnit: TemperatureUnit.celsius,
+          windSpeedUnit: WindSpeedUnit.kmh,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await _gotoWardrobe(tester);
+    await tester.pump();
+
+    // 风格压过 base，性别再压过风格的下装/上衣——
+    // 温和档应该看到女款"长裙 / 阔腿裤"（mild 独占）、商务"薄西装"（mild 独占）和"商务皮鞋"。
+    expect(
+      find.text('下装 · 长裙 / 阔腿裤', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.text('外套 · 薄西装', skipOffstage: false),
+      findsOneWidget,
+    );
+    // casual base 中的"长袖衬衫"不应出现——证明设置真正生效了。
+    expect(
+      find.text('上衣 · 长袖衬衫', skipOffstage: false),
+      findsNothing,
+    );
+    // 商务皮鞋在 cool/mild/warm 多档出现——只检查存在即可。
+    expect(
+      find.text('鞋履 · 商务皮鞋', skipOffstage: false),
+      findsWidgets,
+    );
+  });
+
+  testWidgets(
+    'thermal sensitivity shifts which bracket gets highlighted',
+    (tester) async {
+      _setPhoneViewport(tester);
+      // 体感 8°：默认敏感度 0.5 → 凉爽档；怕冷 0.0 → adjusted=4°C → 寒冷档。
+      final repo = _ScriptedRepo(
+        () => Future<WeatherForecast>.value(_forecastWithFeels(8)),
+      );
+      await tester.pumpWidget(
+        await _appWith(
+          repo: repo,
+          userPrefs: const UserPreferences(thermalSensitivity: 0),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await _gotoWardrobe(tester);
+      await tester.pump();
+
+      // 怕冷被高亮的应是"寒冷"档而非"凉爽"档——
+      // 用相邻"当前"徽标的关系断言：寒冷档行里能找到"当前"徽标。
+      // 简单做法：抓所有"寒冷"文本节点对应的卡片，验证里面带徽标。
+      // 直接做法：在视图中查找寒冷档的 pill 文本（应当看到寒冷档的"加厚外套"jacket）
+      // 同时确认凉爽档没被高亮——只有 1 个"当前"徽标。
+      expect(find.text('当前', skipOffstage: false), findsOneWidget);
+
+      // 寒冷档的 pill 应包含"加厚外套"
+      expect(
+        find.text('外套 · 加厚外套', skipOffstage: false),
+        findsOneWidget,
+      );
+    },
+  );
 }

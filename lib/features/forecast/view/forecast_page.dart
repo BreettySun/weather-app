@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/frosted_app_bar.dart';
 import '../../../core/widgets/scrollable_fill.dart';
 import '../../settings/controller/preferences_provider.dart';
 import '../../weather/controller/forecast_provider.dart';
@@ -35,7 +34,7 @@ class ForecastPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surfaceContainerLow,
       extendBody: true,
-      appBar: const _ForecastAppBar(),
+      appBar: buildFrostedAppBar(context, title: '未来 7 日'),
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
         color: AppColors.primaryContainer,
@@ -63,40 +62,6 @@ class ForecastPage extends ConsumerWidget {
     } catch (_) {
       // swallow: surfaces in AsyncValue.error
     }
-  }
-}
-
-/// 与设置页同款磨砂玻璃顶栏。
-class _ForecastAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _ForecastAppBar();
-
-  @override
-  Size get preferredSize => const Size.fromHeight(64);
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          height: 64,
-          decoration: const BoxDecoration(
-            color: Color(0xCCFFFFFF),
-            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
-          ),
-          child: Center(
-            child: Text(
-              '未来 7 日',
-              style: AppTypography.bodyLg.copyWith(
-                color: AppColors.onSurface,
-                fontWeight: FontWeight.w700,
-                height: 28 / 18,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 

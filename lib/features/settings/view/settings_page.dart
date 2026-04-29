@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
+import '../../../core/widgets/frosted_app_bar.dart';
 import '../../weather/controller/location_provider.dart';
 import '../controller/preferences_provider.dart';
 import '../model/user_preferences.dart';
@@ -26,7 +25,7 @@ class SettingsPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surfaceContainerLow,
       extendBody: true,
-      appBar: const _SettingsAppBar(),
+      appBar: buildFrostedAppBar(context, title: '设置'),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           20,
@@ -114,41 +113,6 @@ class SettingsPage extends ConsumerWidget {
           .read(userPreferencesProvider.notifier)
           .setReminderTime(picked.hour, picked.minute);
     }
-  }
-}
-
-class _SettingsAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _SettingsAppBar();
-
-  @override
-  Size get preferredSize => const Size.fromHeight(64);
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          height: 64,
-          decoration: const BoxDecoration(
-            color: Color(0xCCFFFFFF), // rgba(255,255,255,0.8)
-            border: Border(
-              bottom: BorderSide(color: Color(0xFFF1F5F9)),
-            ),
-          ),
-          child: Center(
-            child: Text(
-              '设置',
-              style: AppTypography.bodyLg.copyWith(
-                color: AppColors.onSurface,
-                fontWeight: FontWeight.w700,
-                height: 28 / 18,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
