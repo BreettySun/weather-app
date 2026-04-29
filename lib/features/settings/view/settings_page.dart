@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../weather/controller/location_provider.dart';
 import '../controller/preferences_provider.dart';
@@ -41,6 +42,14 @@ class SettingsPage extends ConsumerWidget {
             onGenderChanged: controller.setGender,
             onStyleTap: () => _showStylePicker(context, ref),
             onSensitivityChanged: controller.setThermalSensitivity,
+          ),
+          const SizedBox(height: 32),
+          _SectionHeader('单位'),
+          const SizedBox(height: 8),
+          _UnitsCard(
+            prefs: prefs,
+            onTemperatureUnitChanged: controller.setTemperatureUnit,
+            onWindSpeedUnitChanged: controller.setWindSpeedUnit,
           ),
           const SizedBox(height: 32),
           _SectionHeader('推送提醒'),
@@ -268,6 +277,55 @@ class _PreferencesCard extends StatelessWidget {
               _ThermalSlider(
                 value: prefs.thermalSensitivity,
                 onChanged: onSensitivityChanged,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UnitsCard extends StatelessWidget {
+  const _UnitsCard({
+    required this.prefs,
+    required this.onTemperatureUnitChanged,
+    required this.onWindSpeedUnitChanged,
+  });
+
+  final UserPreferences prefs;
+  final ValueChanged<TemperatureUnit> onTemperatureUnitChanged;
+  final ValueChanged<WindSpeedUnit> onWindSpeedUnitChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      children: [
+        _SettingRow(
+          child: Row(
+            children: [
+              _RowLabel('温度单位'),
+              const Spacer(),
+              _EnumSegmented<TemperatureUnit>(
+                value: prefs.temperatureUnit,
+                values: TemperatureUnit.values,
+                labelOf: (u) => u.symbol,
+                onChanged: onTemperatureUnitChanged,
+              ),
+            ],
+          ),
+        ),
+        _SettingRow(
+          divider: false,
+          child: Row(
+            children: [
+              _RowLabel('风速单位'),
+              const Spacer(),
+              _EnumSegmented<WindSpeedUnit>(
+                value: prefs.windSpeedUnit,
+                values: WindSpeedUnit.values,
+                labelOf: (u) => u.symbol,
+                onChanged: onWindSpeedUnitChanged,
               ),
             ],
           ),
@@ -555,6 +613,31 @@ class _GenderSegmented extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _EnumSegmented<GenderPreference>(
+      value: value,
+      values: GenderPreference.values,
+      labelOf: (g) => g.label,
+      onChanged: onChanged,
+    );
+  }
+}
+
+/// 圆角胶囊里的多选段——给 [_GenderSegmented] 和单位段共用。
+class _EnumSegmented<T extends Enum> extends StatelessWidget {
+  const _EnumSegmented({
+    required this.value,
+    required this.values,
+    required this.labelOf,
+    required this.onChanged,
+  });
+
+  final T value;
+  final List<T> values;
+  final String Function(T) labelOf;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
@@ -564,12 +647,12 @@ class _GenderSegmented extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 0; i < GenderPreference.values.length; i++) ...[
+          for (var i = 0; i < values.length; i++) ...[
             if (i > 0) const SizedBox(width: 4),
             _SegmentButton(
-              label: GenderPreference.values[i].label,
-              selected: GenderPreference.values[i] == value,
-              onTap: () => onChanged(GenderPreference.values[i]),
+              label: labelOf(values[i]),
+              selected: values[i] == value,
+              onTap: () => onChanged(values[i]),
             ),
           ],
         ],

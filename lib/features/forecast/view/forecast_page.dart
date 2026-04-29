@@ -7,8 +7,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/error/friendly_message.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/scrollable_fill.dart';
+import '../../settings/controller/preferences_provider.dart';
 import '../../weather/controller/forecast_provider.dart';
 import '../../weather/controller/location_provider.dart';
 import '../../weather/model/daily_forecast.dart';
@@ -26,6 +28,9 @@ class ForecastPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncForecast = ref.watch(forecastProvider);
     final location = ref.watch(selectedLocationProvider);
+    final tempUnit = ref.watch(
+      userPreferencesProvider.select((p) => p.temperatureUnit),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.surfaceContainerLow,
@@ -43,6 +48,7 @@ class ForecastPage extends ConsumerWidget {
           data: (forecast) => _DailyList(
             daily: forecast.daily,
             cityName: location?.name,
+            tempUnit: tempUnit,
           ),
         ),
       ),
@@ -95,9 +101,14 @@ class _ForecastAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class _DailyList extends StatelessWidget {
-  const _DailyList({required this.daily, this.cityName});
+  const _DailyList({
+    required this.daily,
+    required this.tempUnit,
+    this.cityName,
+  });
 
   final List<DailyForecast> daily;
+  final TemperatureUnit tempUnit;
   final String? cityName;
 
   @override
@@ -133,9 +144,10 @@ class _DailyList extends StatelessWidget {
           dayCount: daily.length,
           minC: tempRange.$1,
           maxC: tempRange.$2,
+          tempUnit: tempUnit,
         ),
         const SizedBox(height: 16),
-        _DailyCard(daily: daily),
+        _DailyCard(daily: daily, tempUnit: tempUnit),
       ],
     );
   }
@@ -158,12 +170,14 @@ class _SummaryCard extends StatelessWidget {
     required this.dayCount,
     required this.minC,
     required this.maxC,
+    required this.tempUnit,
   });
 
   final String? cityName;
   final int dayCount;
   final double minC;
   final double maxC;
+  final TemperatureUnit tempUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +220,8 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '${minC.round()}° / ${maxC.round()}°',
+            '${formatTemperatureShort(minC, tempUnit)} / '
+            '${formatTemperatureShort(maxC, tempUnit)}',
             style: AppTypography.headlineH2.copyWith(
               color: AppColors.onSecondaryFixed,
               height: 1,
@@ -227,9 +242,10 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _DailyCard extends StatelessWidget {
-  const _DailyCard({required this.daily});
+  const _DailyCard({required this.daily, required this.tempUnit});
 
   final List<DailyForecast> daily;
+  final TemperatureUnit tempUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +279,7 @@ class _DailyCard extends StatelessWidget {
               today: today,
               globalMinC: minC,
               globalMaxC: maxC,
+              tempUnit: tempUnit,
               isFirst: i == 0,
               divider: i < daily.length - 1,
             ),
@@ -278,6 +295,7 @@ class _DailyRow extends StatelessWidget {
     required this.today,
     required this.globalMinC,
     required this.globalMaxC,
+    required this.tempUnit,
     required this.isFirst,
     required this.divider,
   });
@@ -286,6 +304,7 @@ class _DailyRow extends StatelessWidget {
   final DateTime today;
   final double globalMinC;
   final double globalMaxC;
+  final TemperatureUnit tempUnit;
   final bool isFirst;
   final bool divider;
 
@@ -362,7 +381,8 @@ class _DailyRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${day.tempMinC.round()}° / ${day.tempMaxC.round()}°',
+                  '${formatTemperatureShort(day.tempMinC, tempUnit)} / '
+                  '${formatTemperatureShort(day.tempMaxC, tempUnit)}',
                   style: AppTypography.bodyMd.copyWith(
                     color: AppColors.onSurface,
                     fontWeight: FontWeight.w600,

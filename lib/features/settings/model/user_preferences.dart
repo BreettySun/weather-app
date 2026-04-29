@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/units/units.dart';
+
 /// 性别偏好——影响穿搭推荐风格。
 enum GenderPreference {
   male('男款'),
@@ -33,6 +35,8 @@ class UserPreferences {
     this.reminderHour = 7,
     this.reminderMinute = 30,
     this.rainAlertEnabled = true,
+    this.temperatureUnit = TemperatureUnit.celsius,
+    this.windSpeedUnit = WindSpeedUnit.kmh,
   });
 
   final GenderPreference gender;
@@ -49,6 +53,12 @@ class UserPreferences {
 
   final bool rainAlertEnabled;
 
+  /// 显示层温度单位——内部数据始终保存 °C，仅展示前转换。
+  final TemperatureUnit temperatureUnit;
+
+  /// 显示层风速单位——内部数据始终保存 km/h。
+  final WindSpeedUnit windSpeedUnit;
+
   String get reminderTimeLabel =>
       '${reminderHour.toString().padLeft(2, '0')}:${reminderMinute.toString().padLeft(2, '0')}';
 
@@ -60,6 +70,8 @@ class UserPreferences {
     int? reminderHour,
     int? reminderMinute,
     bool? rainAlertEnabled,
+    TemperatureUnit? temperatureUnit,
+    WindSpeedUnit? windSpeedUnit,
   }) {
     return UserPreferences(
       gender: gender ?? this.gender,
@@ -69,6 +81,8 @@ class UserPreferences {
       reminderHour: reminderHour ?? this.reminderHour,
       reminderMinute: reminderMinute ?? this.reminderMinute,
       rainAlertEnabled: rainAlertEnabled ?? this.rainAlertEnabled,
+      temperatureUnit: temperatureUnit ?? this.temperatureUnit,
+      windSpeedUnit: windSpeedUnit ?? this.windSpeedUnit,
     );
   }
 
@@ -80,6 +94,8 @@ class UserPreferences {
     'reminderHour': reminderHour,
     'reminderMinute': reminderMinute,
     'rainAlertEnabled': rainAlertEnabled,
+    'temperatureUnit': temperatureUnit.name,
+    'windSpeedUnit': windSpeedUnit.name,
   };
 
   /// 解析旧数据时缺失/类型错误的字段回落到默认值，避免破坏已存在的安装。
@@ -112,6 +128,16 @@ class UserPreferences {
         final bool v => v,
         _ => defaults.rainAlertEnabled,
       },
+      temperatureUnit: _parseEnum(
+        json['temperatureUnit'],
+        TemperatureUnit.values,
+        defaults.temperatureUnit,
+      ),
+      windSpeedUnit: _parseEnum(
+        json['windSpeedUnit'],
+        WindSpeedUnit.values,
+        defaults.windSpeedUnit,
+      ),
     );
   }
 }

@@ -5,10 +5,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/error/friendly_message.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/scrollable_fill.dart';
 import '../../outfit/controller/outfit_provider.dart';
 import '../../outfit/model/outfit_recommendation.dart';
+import '../../settings/controller/preferences_provider.dart';
 import '../controller/forecast_provider.dart';
 import '../controller/location_provider.dart';
 import '../model/current_weather.dart';
@@ -27,6 +29,12 @@ class WeatherHomePage extends ConsumerWidget {
     final forecastAsync = ref.watch(forecastProvider);
     final location = ref.watch(selectedLocationProvider);
     final outfit = ref.watch(outfitRecommendationProvider);
+    final tempUnit = ref.watch(
+      userPreferencesProvider.select((p) => p.temperatureUnit),
+    );
+    final windUnit = ref.watch(
+      userPreferencesProvider.select((p) => p.windSpeedUnit),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.surfaceContainerLowest,
@@ -47,8 +55,12 @@ class WeatherHomePage extends ConsumerWidget {
                     message: friendlyErrorMessage(e),
                     onRetry: () => ref.invalidate(forecastProvider),
                   ),
-                  data: (forecast) =>
-                      _MainContent(forecast: forecast, outfit: outfit),
+                  data: (forecast) => _MainContent(
+                    forecast: forecast,
+                    outfit: outfit,
+                    tempUnit: tempUnit,
+                    windUnit: windUnit,
+                  ),
                 ),
               ),
             ),
@@ -123,10 +135,17 @@ class _LocationBar extends StatelessWidget {
 }
 
 class _MainContent extends StatelessWidget {
-  const _MainContent({required this.forecast, required this.outfit});
+  const _MainContent({
+    required this.forecast,
+    required this.outfit,
+    required this.tempUnit,
+    required this.windUnit,
+  });
 
   final WeatherForecast forecast;
   final OutfitRecommendation? outfit;
+  final TemperatureUnit tempUnit;
+  final WindSpeedUnit windUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +162,11 @@ class _MainContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WeatherCard(forecast: forecast),
+          _WeatherCard(
+            forecast: forecast,
+            tempUnit: tempUnit,
+            windUnit: windUnit,
+          ),
           const SizedBox(height: 24),
           _OutfitSection(outfit: outfit),
           const SizedBox(height: 24),
@@ -156,9 +179,15 @@ class _MainContent extends StatelessWidget {
 
 /// 天气卡：渐变蓝底，含温度/条件、3 个数据 chip、3 日小预报。
 class _WeatherCard extends StatelessWidget {
-  const _WeatherCard({required this.forecast});
+  const _WeatherCard({
+    required this.forecast,
+    required this.tempUnit,
+    required this.windUnit,
+  });
 
   final WeatherForecast forecast;
+  final TemperatureUnit tempUnit;
+  final WindSpeedUnit windUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -186,13 +215,17 @@ class _WeatherCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WeatherHeader(current: c),
+          _WeatherHeader(current: c, tempUnit: tempUnit),
           const SizedBox(height: 16),
-          _WeatherChipsRow(current: c),
+          _WeatherChipsRow(
+            current: c,
+            tempUnit: tempUnit,
+            windUnit: windUnit,
+          ),
           const SizedBox(height: 16),
           _WeatherDivider(),
           const SizedBox(height: 16),
-          _ThreeDayMini(daily: daily),
+          _ThreeDayMini(daily: daily, tempUnit: tempUnit),
         ],
       ),
     );
@@ -200,9 +233,10 @@ class _WeatherCard extends StatelessWidget {
 }
 
 class _WeatherHeader extends StatelessWidget {
-  const _WeatherHeader({required this.current});
+  const _WeatherHeader({required this.current, required this.tempUnit});
 
   final CurrentWeather current;
+  final TemperatureUnit tempUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +257,10 @@ class _WeatherHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${current.temperatureC.round()}°C', style: tempStyle),
+              Text(
+                formatTemperature(current.temperatureC, tempUnit),
+                style: tempStyle,
+              ),
               const SizedBox(height: 8),
               Text(
                 weatherConditionLabel(current.condition),
@@ -243,26 +280,30 @@ class _WeatherHeader extends StatelessWidget {
 }
 
 class _WeatherChipsRow extends StatelessWidget {
-  const _WeatherChipsRow({required this.current});
+  const _WeatherChipsRow({
+    required this.current,
+    required this.tempUnit,
+    required this.windUnit,
+  });
 
   final CurrentWeather current;
+  final TemperatureUnit tempUnit;
+  final WindSpeedUnit windUnit;
 
   @override
   Widget build(BuildContext context) {
     final chips = <String>[
-      '体感 ${current.apparentTemperatureC.round()}°C',
+      '体感 ${formatTemperature(current.apparentTemperatureC, tempUnit)}',
       '湿度 ${current.humidityPct}%',
       '${windDirectionToChinese(current.windDirectionDeg)}风 '
-          '${windSpeedKmhToBeaufort(current.windSpeedKmh)}级',
+          '${formatWindSpeed(current.windSpeedKmh, windUnit)}',
     ];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < chips.length; i++) ...[
-          if (i > 0) const SizedBox(width: 8),
-          _WeatherChip(label: chips[i]),
-        ],
-      ],
+    // 用 Wrap 而非 Row——单位切换可能让"12 km/h"比"3级"明显加宽，
+    // 在窄屏（如 iPhone 13 mini 375px）会横向溢出；Wrap 自动换行更稳。
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [for (final c in chips) _WeatherChip(label: c)],
     );
   }
 }
@@ -304,9 +345,10 @@ class _WeatherDivider extends StatelessWidget {
 }
 
 class _ThreeDayMini extends StatelessWidget {
-  const _ThreeDayMini({required this.daily});
+  const _ThreeDayMini({required this.daily, required this.tempUnit});
 
   final List<DailyForecast> daily;
+  final TemperatureUnit tempUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -314,17 +356,26 @@ class _ThreeDayMini extends StatelessWidget {
     final items = <Widget>[];
     for (var i = 0; i < 3; i++) {
       final day = i < daily.length ? daily[i] : null;
-      items.add(Expanded(child: _ThreeDayCell(label: labels[i], day: day)));
+      items.add(
+        Expanded(
+          child: _ThreeDayCell(label: labels[i], day: day, tempUnit: tempUnit),
+        ),
+      );
     }
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: items);
   }
 }
 
 class _ThreeDayCell extends StatelessWidget {
-  const _ThreeDayCell({required this.label, required this.day});
+  const _ThreeDayCell({
+    required this.label,
+    required this.day,
+    required this.tempUnit,
+  });
 
   final String label;
   final DailyForecast? day;
+  final TemperatureUnit tempUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -348,7 +399,8 @@ class _ThreeDayCell extends StatelessWidget {
         Text(
           day == null
               ? '—/—°'
-              : '${day.tempMinC.round()}/${day.tempMaxC.round()}°',
+              : '${formatTemperatureShort(day.tempMinC, tempUnit)}/'
+                  '${formatTemperatureShort(day.tempMaxC, tempUnit)}',
           style: AppTypography.bodyMd.copyWith(
             color: AppColors.onSecondaryFixed,
             fontWeight: FontWeight.w700,

@@ -7,9 +7,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/error/friendly_message.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../outfit/controller/outfit_provider.dart';
 import '../../outfit/model/outfit_recommendation.dart';
+import '../../settings/controller/preferences_provider.dart';
 import '../../weather/controller/forecast_provider.dart';
 
 /// 衣橱页：以"穿搭参考"为定位——展示今日推荐 + 6 档温度区间穿搭手册。
@@ -22,7 +24,11 @@ class WardrobePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncForecast = ref.watch(forecastProvider);
     final outfit = ref.watch(outfitRecommendationProvider);
-    // 体感温度——决定 [_BracketCard] 的高亮档位。无数据时为 null，参考表全部不高亮。
+    final tempUnit = ref.watch(
+      userPreferencesProvider.select((p) => p.temperatureUnit),
+    );
+    // 体感温度（°C，原始值）——决定 [_BracketCard] 的高亮档位。
+    // 高亮匹配逻辑用 °C 原值，因此即使用户选了 °F 也能正确命中档位。
     final feels = asyncForecast.valueOrNull?.current.apparentTemperatureC;
 
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
@@ -45,7 +51,11 @@ class WardrobePage extends ConsumerWidget {
             if (outfit != null) ...[
               _SectionHeader('今日推荐'),
               const SizedBox(height: 8),
-              _TodayCard(outfit: outfit, feelsC: feels),
+              _TodayCard(
+                outfit: outfit,
+                feelsC: feels,
+                tempUnit: tempUnit,
+              ),
               const SizedBox(height: 24),
             ] else if (asyncForecast.hasError) ...[
               _ErrorBanner(
@@ -60,6 +70,7 @@ class WardrobePage extends ConsumerWidget {
               if (i > 0) const SizedBox(height: 12),
               _BracketCard(
                 bracket: _brackets[i],
+                tempUnit: tempUnit,
                 highlight: feels != null && _brackets[i].contains(feels),
               ),
             ],
@@ -134,9 +145,14 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _TodayCard extends StatelessWidget {
-  const _TodayCard({required this.outfit, this.feelsC});
+  const _TodayCard({
+    required this.outfit,
+    required this.tempUnit,
+    this.feelsC,
+  });
 
   final OutfitRecommendation outfit;
+  final TemperatureUnit tempUnit;
   final double? feelsC;
 
   @override
@@ -159,7 +175,7 @@ class _TodayCard extends StatelessWidget {
         children: [
           if (feelsC != null)
             Text(
-              '体感 ${feelsC!.round()}°',
+              '体感 ${formatTemperatureShort(feelsC!, tempUnit)}',
               style: AppTypography.labelCaps.copyWith(
                 letterSpacing: 0,
                 color: AppColors.onSurfaceVariant,
@@ -310,9 +326,14 @@ class _ErrorBanner extends StatelessWidget {
 }
 
 class _BracketCard extends StatelessWidget {
-  const _BracketCard({required this.bracket, required this.highlight});
+  const _BracketCard({
+    required this.bracket,
+    required this.tempUnit,
+    required this.highlight,
+  });
 
   final _Bracket bracket;
+  final TemperatureUnit tempUnit;
   final bool highlight;
 
   @override
@@ -363,7 +384,7 @@ class _BracketCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                bracket.range,
+                _rangeLabel(bracket, tempUnit),
                 style: AppTypography.labelCaps.copyWith(
                   letterSpacing: 0,
                   color: AppColors.onSurfaceVariant,
@@ -440,7 +461,6 @@ class _Pill extends StatelessWidget {
 class _Bracket {
   const _Bracket({
     required this.label,
-    required this.range,
     required this.low,
     required this.high,
     required this.accent,
@@ -451,7 +471,6 @@ class _Bracket {
   });
 
   final String label;
-  final String range;
   final double low;
   final double high;
   final Color accent;
@@ -460,7 +479,19 @@ class _Bracket {
   final String jacket;
   final String shoes;
 
-  bool contains(double feels) => feels >= low && feels < high;
+  bool contains(double feelsC) => feelsC >= low && feelsC < high;
+}
+
+/// 把档位的 °C 半开区间渲染成"< 0°"/"0°–8°"/"≥ 28°"等字串，按目标温度单位转换。
+String _rangeLabel(_Bracket b, TemperatureUnit unit) {
+  if (b.low == double.negativeInfinity) {
+    return '< ${formatTemperatureShort(b.high, unit)}';
+  }
+  if (b.high == double.infinity) {
+    return '≥ ${formatTemperatureShort(b.low, unit)}';
+  }
+  return '${formatTemperatureShort(b.low, unit)}'
+      '–${formatTemperatureShort(b.high, unit)}';
 }
 
 /// 温度档划分——边界与 outfit_provider 的规则推导器对齐，
@@ -468,7 +499,6 @@ class _Bracket {
 const _brackets = <_Bracket>[
   _Bracket(
     label: '严寒',
-    range: '< 0°',
     low: double.negativeInfinity,
     high: 0,
     accent: Color(0xFF5B8CFF),
@@ -479,7 +509,6 @@ const _brackets = <_Bracket>[
   ),
   _Bracket(
     label: '寒冷',
-    range: '0°–8°',
     low: 0,
     high: 8,
     accent: Color(0xFFA4C9FF),
@@ -490,7 +519,6 @@ const _brackets = <_Bracket>[
   ),
   _Bracket(
     label: '凉爽',
-    range: '8°–15°',
     low: 8,
     high: 15,
     accent: Color(0xFF7BC5A0),
@@ -501,7 +529,6 @@ const _brackets = <_Bracket>[
   ),
   _Bracket(
     label: '温和',
-    range: '15°–22°',
     low: 15,
     high: 22,
     accent: Color(0xFFFFD66B),
@@ -512,7 +539,6 @@ const _brackets = <_Bracket>[
   ),
   _Bracket(
     label: '温暖',
-    range: '22°–28°',
     low: 22,
     high: 28,
     accent: Color(0xFFFFA94D),
@@ -523,7 +549,6 @@ const _brackets = <_Bracket>[
   ),
   _Bracket(
     label: '炎热',
-    range: '≥ 28°',
     low: 28,
     high: double.infinity,
     accent: Color(0xFFFF7777),

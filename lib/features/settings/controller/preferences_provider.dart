@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/storage/preferences.dart';
+import '../../../core/units/units.dart';
 import '../model/user_preferences.dart';
 
 /// SharedPreferences 中存放用户偏好的 key——单条 JSON 字符串，
@@ -56,6 +57,14 @@ class UserPreferencesController extends StateNotifier<UserPreferences> {
 
   void setRainAlertEnabled(bool value) {
     _update(state.copyWith(rainAlertEnabled: value));
+  }
+
+  void setTemperatureUnit(TemperatureUnit value) {
+    _update(state.copyWith(temperatureUnit: value));
+  }
+
+  void setWindSpeedUnit(WindSpeedUnit value) {
+    _update(state.copyWith(windSpeedUnit: value));
   }
 
   void _update(UserPreferences next) {

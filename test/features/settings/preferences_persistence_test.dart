@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:weather_app/core/units/units.dart';
 import 'package:weather_app/features/settings/controller/preferences_provider.dart';
 import 'package:weather_app/features/settings/model/user_preferences.dart';
 
@@ -16,6 +17,8 @@ void main() {
       expect(c.state.gender, GenderPreference.universal);
       expect(c.state.style, ClothingStyle.casual);
       expect(c.state.dailyReminderEnabled, true);
+      expect(c.state.temperatureUnit, TemperatureUnit.celsius);
+      expect(c.state.windSpeedUnit, WindSpeedUnit.kmh);
     });
 
     test('setters mutate state and write to disk', () async {
@@ -28,6 +31,8 @@ void main() {
       c.setDailyReminderEnabled(false);
       c.setReminderTime(8, 15);
       c.setRainAlertEnabled(false);
+      c.setTemperatureUnit(TemperatureUnit.fahrenheit);
+      c.setWindSpeedUnit(WindSpeedUnit.ms);
 
       // 让微任务跑完，确保 fire-and-forget 的 setString 完成。
       await Future<void>.delayed(Duration.zero);
@@ -41,6 +46,8 @@ void main() {
       expect(c2.state.reminderHour, 8);
       expect(c2.state.reminderMinute, 15);
       expect(c2.state.rainAlertEnabled, false);
+      expect(c2.state.temperatureUnit, TemperatureUnit.fahrenheit);
+      expect(c2.state.windSpeedUnit, WindSpeedUnit.ms);
     });
 
     test('corrupt JSON resets to defaults without throwing', () async {
