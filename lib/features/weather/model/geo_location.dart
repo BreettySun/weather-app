@@ -25,7 +25,7 @@ class GeoLocation {
   final String? timezone;
   final int? population;
 
-  /// 解析 Open-Meteo Geocoding API 单条结果。
+  /// 解析 Open-Meteo Geocoding API 单条结果，也用作本地缓存的反序列化。
   /// 文档：https://open-meteo.com/en/docs/geocoding-api
   factory GeoLocation.fromJson(Map<String, dynamic> json) {
     return GeoLocation(
@@ -39,6 +39,18 @@ class GeoLocation {
       population: json['population'] as int?,
     );
   }
+
+  /// 与 [GeoLocation.fromJson] 对称，键名沿用 Open-Meteo 风格。
+  Map<String, Object?> toJson() => <String, Object?>{
+    'name': name,
+    'latitude': latitude,
+    'longitude': longitude,
+    if (admin1 != null) 'admin1': admin1,
+    if (country != null) 'country': country,
+    if (countryCode != null) 'country_code': countryCode,
+    if (timezone != null) 'timezone': timezone,
+    if (population != null) 'population': population,
+  };
 
   /// 给定经纬度的临时 [GeoLocation]（如来自 GPS，但未做反查）。
   factory GeoLocation.coords({

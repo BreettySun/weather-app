@@ -36,7 +36,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       final location = await ref
           .read(locationServiceProvider)
           .currentLocation();
-      ref.read(selectedLocationProvider.notifier).state = location;
+      ref.read(selectedLocationProvider.notifier).set(location);
       if (!mounted) return;
       context.go(Routes.weatherHome);
     } on LocationException catch (e) {
