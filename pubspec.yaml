@@ -44,6 +44,7 @@ dependencies:
   riverpod_annotation: ^2.6.1
   flutter_svg: ^2.2.4
   geocoding: ^4.0.0
+  home_widget: ^0.9.1
 
 dev_dependencies:
   flutter_test:
