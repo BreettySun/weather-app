@@ -33,7 +33,7 @@ class HourlyStrip extends StatelessWidget {
     if (cells.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 110,
+      height: 116,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -97,6 +97,8 @@ class _HourCell extends StatelessWidget {
     final border = highlighted
         ? Border.all(color: AppColors.primaryContainer, width: 1.5)
         : null;
+    // 用 mainAxisSize.min + spacers 避免 spaceBetween 在某些 DPR 下因
+     // 行高累加 1~2px 浮动而溢出固定容器（曾报 RenderFlex overflow）。
     return Container(
       width: 64,
       decoration: BoxDecoration(
@@ -104,27 +106,32 @@ class _HourCell extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: border,
       ),
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             '${hour.time.hour.toString().padLeft(2, '0')}时',
             style: AppTypography.labelCaps.copyWith(
               color: foreground,
               fontWeight: highlighted ? FontWeight.w800 : FontWeight.w600,
+              height: 1.0,
             ),
           ),
+          const SizedBox(height: 6),
           Text(
             _emoji(hour.condition),
-            style: const TextStyle(fontSize: 22),
+            style: const TextStyle(fontSize: 20, height: 1.0),
           ),
+          const SizedBox(height: 6),
           Text(
             formatTemperatureShort(hour.temperatureC, tempUnit),
             style: AppTypography.bodyMd.copyWith(
               color: foreground,
               fontWeight: highlighted ? FontWeight.w800 : FontWeight.w600,
               fontSize: 14,
+              height: 1.0,
             ),
           ),
         ],
