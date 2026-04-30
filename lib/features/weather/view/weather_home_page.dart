@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/error/friendly_message.dart';
+import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/units/units.dart';
@@ -714,9 +716,7 @@ class _ActionButtons extends StatelessWidget {
           Expanded(
             child: _OutlineButton(
               label: '查看详情',
-              onPressed: () {
-                // TODO: 详情页
-              },
+              onPressed: () => context.go(Routes.forecast),
             ),
           ),
           const SizedBox(width: 16),

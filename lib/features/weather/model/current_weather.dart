@@ -41,4 +41,32 @@ class CurrentWeather {
       isDay: (json['is_day'] as int? ?? 1) == 1,
     );
   }
+
+  /// 缓存反序列化——键名与字段一一对应，与 Open-Meteo 网络格式分离，
+  /// 避免缓存版本耦合到第三方接口字段名。
+  factory CurrentWeather.fromCacheJson(Map<String, dynamic> json) {
+    return CurrentWeather(
+      time: DateTime.parse(json['time'] as String),
+      temperatureC: (json['temperatureC'] as num).toDouble(),
+      apparentTemperatureC: (json['apparentTemperatureC'] as num).toDouble(),
+      humidityPct: (json['humidityPct'] as num).toInt(),
+      precipitationMm: (json['precipitationMm'] as num).toDouble(),
+      condition: WeatherCondition.values.byName(json['condition'] as String),
+      windSpeedKmh: (json['windSpeedKmh'] as num).toDouble(),
+      windDirectionDeg: (json['windDirectionDeg'] as num).toInt(),
+      isDay: json['isDay'] as bool,
+    );
+  }
+
+  Map<String, Object?> toCacheJson() => {
+        'time': time.toIso8601String(),
+        'temperatureC': temperatureC,
+        'apparentTemperatureC': apparentTemperatureC,
+        'humidityPct': humidityPct,
+        'precipitationMm': precipitationMm,
+        'condition': condition.name,
+        'windSpeedKmh': windSpeedKmh,
+        'windDirectionDeg': windDirectionDeg,
+        'isDay': isDay,
+      };
 }

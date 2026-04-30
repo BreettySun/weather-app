@@ -51,8 +51,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   void _onManualCity() {
-    // TODO: 接入手动输入城市页（搜索 / 选择 → selectedLocationProvider）。
-    _showError('手动输入城市功能即将上线');
+    context.push(Routes.citySearch);
   }
 
   void _showError(String message) {

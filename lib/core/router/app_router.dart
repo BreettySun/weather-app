@@ -9,6 +9,7 @@ import '../../features/shell/app_shell.dart';
 import '../../features/wardrobe/view/wardrobe_page.dart';
 import '../../features/weather/controller/location_provider.dart';
 import '../../features/weather/model/geo_location.dart';
+import '../../features/weather/view/city_search_page.dart';
 import '../../features/weather/view/weather_home_page.dart';
 import 'routes.dart';
 
@@ -40,7 +41,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final hasLocation = listenable.value != null;
       final atOnboarding = state.matchedLocation == Routes.onboarding;
-      if (!hasLocation && !atOnboarding) return Routes.onboarding;
+      // 城市搜索是 onboarding 选位置的入口之一，未选定时也必须可达。
+      final atCitySearch = state.matchedLocation == Routes.citySearch;
+      if (!hasLocation && !atOnboarding && !atCitySearch) {
+        return Routes.onboarding;
+      }
       if (hasLocation && atOnboarding) return Routes.weatherHome;
       return null;
     },
@@ -48,6 +53,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.onboarding,
         builder: (context, state) => const OnboardingPage(),
+      ),
+      GoRoute(
+        path: Routes.citySearch,
+        builder: (context, state) => const CitySearchPage(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

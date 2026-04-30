@@ -32,6 +32,41 @@ class DailyForecast {
   final double windSpeedMaxKmh;
   final DateTime? sunrise;
   final DateTime? sunset;
+
+  factory DailyForecast.fromCacheJson(Map<String, dynamic> json) {
+    DateTime? parseDt(Object? raw) =>
+        raw is String ? DateTime.tryParse(raw) : null;
+    return DailyForecast(
+      date: DateTime.parse(json['date'] as String),
+      tempMaxC: (json['tempMaxC'] as num).toDouble(),
+      tempMinC: (json['tempMinC'] as num).toDouble(),
+      apparentMaxC: (json['apparentMaxC'] as num).toDouble(),
+      apparentMinC: (json['apparentMinC'] as num).toDouble(),
+      condition: WeatherCondition.values.byName(json['condition'] as String),
+      precipitationSumMm: (json['precipitationSumMm'] as num).toDouble(),
+      precipitationProbabilityPct:
+          (json['precipitationProbabilityPct'] as num).toInt(),
+      uvIndexMax: (json['uvIndexMax'] as num).toDouble(),
+      windSpeedMaxKmh: (json['windSpeedMaxKmh'] as num).toDouble(),
+      sunrise: parseDt(json['sunrise']),
+      sunset: parseDt(json['sunset']),
+    );
+  }
+
+  Map<String, Object?> toCacheJson() => {
+        'date': date.toIso8601String(),
+        'tempMaxC': tempMaxC,
+        'tempMinC': tempMinC,
+        'apparentMaxC': apparentMaxC,
+        'apparentMinC': apparentMinC,
+        'condition': condition.name,
+        'precipitationSumMm': precipitationSumMm,
+        'precipitationProbabilityPct': precipitationProbabilityPct,
+        'uvIndexMax': uvIndexMax,
+        'windSpeedMaxKmh': windSpeedMaxKmh,
+        if (sunrise != null) 'sunrise': sunrise!.toIso8601String(),
+        if (sunset != null) 'sunset': sunset!.toIso8601String(),
+      };
 }
 
 /// 把 Open-Meteo 的 `daily` 响应（各字段为平行数组）展开成 [DailyForecast] 列表。

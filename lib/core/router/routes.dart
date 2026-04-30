@@ -7,4 +7,7 @@ abstract final class Routes {
   static const forecast = '/forecast';
   static const wardrobe = '/wardrobe';
   static const settings = '/settings';
+
+  /// 城市搜索 / 切换——shell 外的全屏栈页，从 onboarding 或 settings push 进来。
+  static const citySearch = '/city-search';
 }

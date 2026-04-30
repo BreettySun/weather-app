@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/units/units.dart';
@@ -390,9 +392,7 @@ class _CitiesCard extends StatelessWidget {
         ),
         _SettingRow(
           divider: false,
-          onTap: () {
-            // TODO: 接入手动添加城市页
-          },
+          onTap: () => context.push(Routes.citySearch),
           child: Row(
             children: [
               SvgPicture.asset(
@@ -406,7 +406,7 @@ class _CitiesCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '添加常用城市',
+                '切换城市',
                 style: AppTypography.bodyMd.copyWith(
                   color: AppColors.primaryContainer,
                   height: 24 / 16,
