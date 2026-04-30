@@ -114,13 +114,23 @@ void main() {
 
     test('read 遇到坏 JSON 时不抛错并清掉脏值', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{
-        'forecast_cache.v1': '{not valid json',
+        'forecast_cache.v2': '{not valid json',
       });
       final prefs = await SharedPreferences.getInstance();
       final cache = ForecastCache(prefs);
 
       expect(cache.read(), isNull);
-      expect(prefs.getString('forecast_cache.v1'), isNull);
+      expect(prefs.getString('forecast_cache.v2'), isNull);
+    });
+
+    test('v1 payload 在升级后被忽略（按"无缓存"走）', () async {
+      // 升级前的 v1 payload，结构不含 hourly。新版本不读 v1 key，应得到 null。
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'forecast_cache.v1': '{"forecast":{"timezone":"X"},"latitude":0}',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final cache = ForecastCache(prefs);
+      expect(cache.read(), isNull);
     });
   });
 

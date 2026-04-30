@@ -32,7 +32,9 @@ class CachedForecast {
   static bool _close(double a, double b) => (a - b).abs() < 0.0001;
 }
 
-const _kCacheKey = 'forecast_cache.v1';
+/// v1 → v2：模型加了 hourly 字段。v1 旧值在升级首启时检测到 key 不存在，
+/// 直接走"无缓存"分支拉网络。不写迁移逻辑——payload 结构变了不值得。
+const _kCacheKey = 'forecast_cache.v2';
 
 /// 把上一次成功的预报缓存到 SharedPreferences——冷启动 / 弱网时立即可用。
 ///

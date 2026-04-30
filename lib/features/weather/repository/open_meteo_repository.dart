@@ -7,6 +7,7 @@ import '../../../core/network/dio_client.dart';
 import '../model/current_weather.dart';
 import '../model/daily_forecast.dart';
 import '../model/geo_location.dart';
+import '../model/hourly_forecast.dart';
 import '../model/weather_forecast.dart';
 import 'weather_repository.dart';
 
@@ -32,6 +33,10 @@ class OpenMeteoRepository implements WeatherRepository {
       'apparent_temperature_max,apparent_temperature_min,sunrise,sunset,'
       'uv_index_max,precipitation_sum,precipitation_probability_max,'
       'wind_speed_10m_max';
+
+  static const _hourlyParams =
+      'temperature_2m,apparent_temperature,weather_code,'
+      'precipitation_probability,wind_speed_10m';
 
   @override
   Future<List<GeoLocation>> searchCity(
@@ -78,6 +83,7 @@ class OpenMeteoRepository implements WeatherRepository {
           'timezone': timezone ?? 'auto',
           'current': _currentParams,
           'daily': _dailyParams,
+          'hourly': _hourlyParams,
           'wind_speed_unit': 'kmh',
           'temperature_unit': 'celsius',
           'precipitation_unit': 'mm',
@@ -89,10 +95,12 @@ class OpenMeteoRepository implements WeatherRepository {
       if (current == null || daily == null) {
         throw const NetworkException('天气数据格式异常');
       }
+      final hourly = data['hourly'] as Map<String, dynamic>?;
       return WeatherForecast(
         timezone: data['timezone'] as String? ?? 'UTC',
         current: CurrentWeather.fromJson(current),
         daily: parseDailyForecasts(daily),
+        hourly: hourly == null ? const [] : parseHourlyForecasts(hourly),
       );
     } on DioException catch (e) {
       throw _toException(e, '天气查询失败');
