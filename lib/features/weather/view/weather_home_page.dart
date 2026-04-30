@@ -11,6 +11,7 @@ import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/scrollable_fill.dart';
 import '../../events/controller/events_provider.dart';
+import '../../events/model/activity.dart';
 import '../../events/view/add_event_sheet.dart';
 import '../../events/view/event_card.dart';
 import '../../outfit/controller/outfit_provider.dart';
@@ -470,6 +471,8 @@ class _OutfitSection extends StatelessWidget {
                 height: 24 / 16,
               ),
             ),
+            const Spacer(),
+            const _DefaultActivityChip(),
           ],
         ),
         const SizedBox(height: 16),
@@ -478,6 +481,29 @@ class _OutfitSection extends StatelessWidget {
         else
           _OutfitCard(outfit: outfit!),
       ],
+    );
+  }
+}
+
+/// 标题右侧的兜底活动 chip——只是状态指示，不可点（要改活动通过加事件）。
+class _DefaultActivityChip extends StatelessWidget {
+  const _DefaultActivityChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final label = defaultActivityContextLabel(DateTime.now());
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.labelCaps.copyWith(
+          color: AppColors.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }

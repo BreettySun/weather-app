@@ -14,7 +14,7 @@ import '../model/temperature_bracket.dart';
 
 /// 默认卡的穿搭推荐——基于当前天气 + 今日预报 + 用户偏好（性别 / 风格 / 体感敏感度）派生。
 ///
-/// 默认 activity 为 [Activity.casual]——P6 阶段会改为按 weekday 推导（commute / casual）。
+/// 默认 activity 用 [defaultActivityForDate] 推导（工作日 = 通勤，周末 = 休闲）。
 final outfitRecommendationProvider = Provider<OutfitRecommendation?>((ref) {
   final forecastAsync = ref.watch(forecastProvider);
   final forecast = forecastAsync.valueOrNull;
@@ -26,7 +26,7 @@ final outfitRecommendationProvider = Provider<OutfitRecommendation?>((ref) {
     current: forecast.current,
     today: today,
     prefs: prefs,
-    activity: Activity.casual,
+    activity: defaultActivityForDate(DateTime.now()),
   );
 });
 
