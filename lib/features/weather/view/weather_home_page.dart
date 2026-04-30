@@ -21,6 +21,7 @@ import '../model/geo_location.dart';
 import '../model/weather_condition.dart';
 import '../model/weather_forecast.dart';
 import '../model/wind_utils.dart';
+import 'hourly_strip.dart';
 
 /// 天气主页（已按 Figma 1:37 设计实现）。
 class WeatherHomePage extends ConsumerWidget {
@@ -116,6 +117,17 @@ class _MainContent extends StatelessWidget {
             tempUnit: tempUnit,
             windUnit: windUnit,
           ),
+          if (forecast.hourly.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            // 负 padding 让滚动条与外层 20dp 内容对齐——条目自带 16dp 内 padding。
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0),
+              child: HourlyStrip(
+                hourly: forecast.hourly,
+                tempUnit: tempUnit,
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           _OutfitSection(outfit: outfit),
           const SizedBox(height: 24),
