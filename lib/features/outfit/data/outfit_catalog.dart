@@ -1,22 +1,34 @@
+import '../../events/model/activity.dart';
 import '../../settings/model/user_preferences.dart';
 import '../model/outfit_pieces.dart';
 import '../model/temperature_bracket.dart';
+import 'activity_overlays.dart';
 
-/// 解析单条穿搭——以 (温度档, 风格, 性别) 为键。
+/// 解析单条穿搭——以 (温度档, 风格, 性别, 活动) 为键。
 ///
-/// 解析顺序：[base] ← style 覆盖 ← gender 覆盖。
-/// gender 后置，让性别相关的单品（如女款"半身裙"）压过通用风格的下装；
-/// 同时也意味着 gender 表只列出值得替换的字段，其余字段空着即可。
+/// 解析顺序：[base] ← style 覆盖 ← gender 覆盖 ← activity 覆盖。
+/// 后置层 win——activity > gender > style > base，符合"用户当下意图最强"的直觉。
+/// 各层的 overlay 表只列出值得替换的字段，未列出的字段 null，保留前一层。
 OutfitPieces outfitPiecesFor({
   required TemperatureBracket bracket,
   required ClothingStyle style,
   required GenderPreference gender,
+  Activity activity = Activity.casual,
 }) {
   var p = _baseByBracket[bracket]!;
   final styleOverlay = _styleOverlays[style]?[bracket];
   if (styleOverlay != null) p = _apply(p, styleOverlay);
   final genderOverlay = _genderOverlays[gender]?[bracket];
   if (genderOverlay != null) p = _apply(p, genderOverlay);
+  final activityOverlay = activityOverlays[activity]?[bracket];
+  if (activityOverlay != null) {
+    p = _apply(p, (
+      top: activityOverlay.top,
+      bottom: activityOverlay.bottom,
+      jacket: activityOverlay.jacket,
+      shoes: activityOverlay.shoes,
+    ));
+  }
   return p;
 }
 
