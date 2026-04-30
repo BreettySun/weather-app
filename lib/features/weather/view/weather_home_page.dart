@@ -10,6 +10,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/units/units.dart';
 import '../../../core/widgets/app_bottom_nav.dart';
 import '../../../core/widgets/scrollable_fill.dart';
+import '../../events/controller/events_provider.dart';
+import '../../events/view/add_event_sheet.dart';
+import '../../events/view/event_card.dart';
 import '../../outfit/controller/outfit_provider.dart';
 import '../../outfit/model/outfit_recommendation.dart';
 import '../../settings/controller/preferences_provider.dart';
@@ -132,6 +135,8 @@ class _MainContent extends StatelessWidget {
           _OutfitSection(outfit: outfit),
           const SizedBox(height: 24),
           const _ActionButtons(),
+          const SizedBox(height: 24),
+          const _EventsSection(),
         ],
       ),
     );
@@ -711,6 +716,77 @@ class _AccessoryPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "今日安排"区——0 事件时只显示加号入口，>0 事件时再加标题与列表。
+class _EventsSection extends ConsumerWidget {
+  const _EventsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final events = ref.watch(eventsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (events.isNotEmpty) ...[
+          Text(
+            '今日安排',
+            style: AppTypography.bodyLg.copyWith(
+              color: AppColors.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final e in events) ...[
+            EventCard(event: e),
+            const SizedBox(height: 10),
+          ],
+        ],
+        const _AddEventButton(),
+      ],
+    );
+  }
+}
+
+class _AddEventButton extends StatelessWidget {
+  const _AddEventButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => showAddEventSheet(context),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.outlineVariant,
+            style: BorderStyle.solid,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.add,
+              size: 18,
+              color: AppColors.primaryContainer,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '添加专门安排',
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.primaryContainer,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
