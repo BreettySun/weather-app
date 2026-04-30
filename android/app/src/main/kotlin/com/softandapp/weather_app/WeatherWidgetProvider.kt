@@ -2,37 +2,39 @@ package com.softandapp.weather_app
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
+import android.util.Log
 import android.widget.RemoteViews
-import es.antonborri.home_widget.HomeWidgetPlugin
+import es.antonborri.home_widget.HomeWidgetProvider
 
 /**
  * 天气 + 穿搭桌面小组件。
  *
  * 数据由 Flutter 侧通过 home_widget 写入到 SharedPreferences；
- * 这里只负责把已存的字符串渲染到 RemoteViews 并响应系统的更新回调。
+ * 这里只负责把已存的字符串渲染到 RemoteViews。
  */
-class WeatherWidgetProvider : AppWidgetProvider() {
+class WeatherWidgetProvider : HomeWidgetProvider() {
 
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
+        appWidgetIds: IntArray,
+        widgetData: SharedPreferences,
     ) {
         for (id in appWidgetIds) {
-            renderWidget(context, appWidgetManager, id)
+            val views = try {
+                buildViews(context, widgetData)
+            } catch (t: Throwable) {
+                Log.e("WeatherWidget", "render failed, falling back", t)
+                fallbackViews(context)
+            }
+            appWidgetManager.updateAppWidget(id, views)
         }
     }
 
-    private fun renderWidget(
-        context: Context,
-        manager: AppWidgetManager,
-        widgetId: Int
-    ) {
-        val prefs = HomeWidgetPlugin.getData(context)
+    private fun buildViews(context: Context, prefs: SharedPreferences): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.weather_widget)
 
         views.setTextViewText(
@@ -54,9 +56,10 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
         val high = prefs.getString("widget.tempHigh", "--")
         val low = prefs.getString("widget.tempLow", "--")
+        val feels = prefs.getString("widget.feelsLike", "--")
         views.setTextViewText(
             R.id.widget_temp_range,
-            "$high / $low · 体感 " + prefs.getString("widget.feelsLike", "--")
+            "$high / $low · 体感 $feels"
         )
 
         views.setTextViewText(
@@ -88,38 +91,35 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             }
         )
 
-        // 点击小组件 → 打开 App 主界面
+        // 点击小组件 → 打开 App
         val launchIntent = context.packageManager
             .getLaunchIntentForPackage(context.packageName)
             ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         if (launchIntent != null) {
-            val pendingIntent = PendingIntent.getActivity(
+            val pi = PendingIntent.getActivity(
                 context,
                 0,
                 launchIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_root, pi)
         }
-
-        manager.updateAppWidget(widgetId, views)
+        return views
     }
 
-    companion object {
-        /** Flutter 侧调用 [HomeWidget.updateWidget] 时会广播 ACTION_APPWIDGET_UPDATE，
-         *  这里提供一个手动批量刷新的辅助，便于其它入口（如 BroadcastReceiver）复用。*/
-        fun refreshAll(context: Context) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(
-                ComponentName(context, WeatherWidgetProvider::class.java)
-            )
-            if (ids.isNotEmpty()) {
-                val intent = Intent(context, WeatherWidgetProvider::class.java).apply {
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-                }
-                context.sendBroadcast(intent)
-            }
-        }
+    /** 任意异常都不应让小组件挂掉——退化成最小内容，至少能看到一行字。 */
+    private fun fallbackViews(context: Context): RemoteViews {
+        val views = RemoteViews(context.packageName, R.layout.weather_widget)
+        views.setTextViewText(R.id.widget_location, "穿什么")
+        views.setTextViewText(R.id.widget_updated_at, "")
+        views.setTextViewText(R.id.widget_temp_now, "--")
+        views.setTextViewText(R.id.widget_condition, "暂无数据")
+        views.setTextViewText(R.id.widget_temp_range, "")
+        views.setTextViewText(R.id.widget_outfit_top, "上衣 · --")
+        views.setTextViewText(R.id.widget_outfit_bottom, "下装 · --")
+        views.setTextViewText(R.id.widget_outfit_jacket, "外套 · --")
+        views.setTextViewText(R.id.widget_outfit_shoes, "鞋履 · --")
+        views.setTextViewText(R.id.widget_tip, "打开应用同步数据")
+        return views
     }
 }
